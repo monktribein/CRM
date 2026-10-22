@@ -48,3 +48,28 @@ describe('environment validation', () => {
     expect(env.MONGODB_MAX_POOL_SIZE).toBe(20);
   });
 });
+
+describe('allowed frontend origins', () => {
+  const allowed = ['https://bizwoke-nova.vercel.app', 'https://crm-*-riya-pandeys-projects-698f6c31.vercel.app'];
+
+  it('matches exact origins and Vercel preview deployments of the same team', async () => {
+    const { isAllowedOrigin } = await import('../config/env.js');
+    expect(isAllowedOrigin('https://bizwoke-nova.vercel.app', allowed)).toBe(true);
+    expect(isAllowedOrigin('https://crm-3vok4j0w0-riya-pandeys-projects-698f6c31.vercel.app', allowed)).toBe(true);
+  });
+
+  it('rejects look-alikes and other sites', async () => {
+    const { isAllowedOrigin } = await import('../config/env.js');
+    expect(isAllowedOrigin('https://evil.vercel.app', allowed)).toBe(false);
+    expect(isAllowedOrigin('https://crm-x.evil.com-riya-pandeys-projects-698f6c31.vercel.app', allowed)).toBe(false);
+    expect(isAllowedOrigin('https://crm-a-riya-pandeys-projects-698f6c31.vercel.app.evil.com', allowed)).toBe(false);
+    expect(isAllowedOrigin('http://crm-a-riya-pandeys-projects-698f6c31.vercel.app', allowed)).toBe(false);
+  });
+
+  it('refuses over-broad patterns at startup', () => {
+    const env = { NODE_ENV: 'production', MONGODB_URI: 'mongodb+srv://u:p@c.example.net', JWT_ACCESS_SECRET: 'a'.repeat(40), JWT_REFRESH_SECRET: 'b'.repeat(40) };
+    expect(() => validateEnv({ ...env, FRONTEND_URL: 'https://app.example.com,https://*.vercel.app' })).toThrow(/too broad/);
+    expect(() => validateEnv({ ...env, FRONTEND_URL: 'https://crm-*-team.vercel.app' })).toThrow(/first entry must be your real site/);
+    expect(() => validateEnv({ ...env, FRONTEND_URL: 'https://app.example.com,https://crm-*-team.vercel.app' })).not.toThrow();
+  });
+});

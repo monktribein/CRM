@@ -5,7 +5,7 @@ import { Throttle } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import type { AuthUser } from '../common/auth-user.js';
 import { CurrentUser, Public } from '../common/decorators.js';
-import { allowedOrigins, type EnvironmentVariables } from '../config/env.js';
+import { allowedOrigins, isAllowedOrigin, type EnvironmentVariables } from '../config/env.js';
 import { UsersService } from '../users/users.service.js';
 import { AuthService } from './auth.service.js';
 import { ChangePasswordDto, ForgotPasswordDto, LoginDto, TokenPasswordDto } from './dto.js';
@@ -44,7 +44,7 @@ export class AuthController {
   /** Cookie-authenticated endpoints only accept requests from the allowed frontend origins. */
   private assertOrigin(req: Request) {
     const origin = req.headers.origin;
-    if (origin && !this.origins.includes(origin)) throw new ForbiddenException('Origin not allowed.');
+    if (origin && !isAllowedOrigin(origin, this.origins)) throw new ForbiddenException('Origin not allowed.');
   }
 
   private setRefreshCookie(res: Response, token: string) {

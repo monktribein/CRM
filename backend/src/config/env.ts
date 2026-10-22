@@ -1,4 +1,5 @@
 import { plainToInstance, Transform } from 'class-transformer';
+import { escapeRegex } from '../common/pagination.js';
 import {
   IsBooleanString,
   IsEmail,
@@ -156,6 +157,17 @@ export function validateEnv(config: Record<string, unknown>) {
       throw new Error('FRONTEND_URL origins must use https:// in production');
     }
   }
+  const origins = allowedOrigins(env);
+  if (!origins.length) throw new Error('Invalid environment configuration:\n  - FRONTEND_URL is empty');
+  if (origins[0]!.includes('*')) {
+    throw new Error(
+      'Invalid environment configuration:\n  - FRONTEND_URL: the first entry must be your real site address (it is used in email links); put wildcard patterns after it',
+    );
+  }
+  for (const o of origins) {
+    const problem = originPatternProblem(o);
+    if (problem) throw new Error(`Invalid environment configuration:\n  - FRONTEND_URL ${problem}`);
+  }
   return env;
 }
 
@@ -163,4 +175,28 @@ export function allowedOrigins(env: Pick<EnvironmentVariables, 'FRONTEND_URL'>) 
   return env.FRONTEND_URL.split(',')
     .map((o) => o.trim().replace(/\/+$/, ''))
     .filter(Boolean);
+}
+
+/**
+ * FRONTEND_URL entries may contain ONE "*" inside the first DNS label, e.g.
+ *   https://crm-*-riya-pandeys-projects-698f6c31.vercel.app
+ * to allow Vercel preview deployments of a single project/team. The wildcard
+ * matches letters, digits and "-" only (never "." or "/"); patterns that are
+ * too broad (e.g. https://*.vercel.app — anyone's site) are rejected.
+ */
+export function originPatternProblem(pattern: string): string | null {
+  if (!pattern.includes('*')) return null;
+  const m = /^https?:\/\/([^/.]+)(\.[^/]+)$/.exec(pattern);
+  if (!m) return `"${pattern}": a wildcard is only allowed in the first part of the host name`;
+  if ((pattern.match(/\*/g) ?? []).length > 1) return `"${pattern}": only one * is allowed`;
+  if (m[1]!.replace('*', '').length < 3) return `"${pattern}": the wildcard pattern is too broad`;
+  return null;
+}
+
+export function isAllowedOrigin(origin: string, allowed: string[]): boolean {
+  return allowed.some((entry) => {
+    if (!entry.includes('*')) return entry === origin;
+    const [before, after] = entry.split('*') as [string, string];
+    return new RegExp('^' + escapeRegex(before) + '[a-z0-9-]+' + escapeRegex(after) + '$', 'i').test(origin);
+  });
 }

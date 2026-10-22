@@ -3,7 +3,17 @@
  * so nothing secret may ever be placed here.
  */
 
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
+/**
+ * Accepts the backend address with or without the version prefix:
+ * "https://api.example.com" and "https://api.example.com/api/v1" both work.
+ */
+function normaliseApiUrl(raw: string) {
+  const base = raw.trim().replace(/\/+$/, "");
+  if (!base) return "";
+  return /\/api\/v\d+$/.test(base) ? base : `${base}/api/v1`;
+}
+
+const rawApiUrl = normaliseApiUrl(process.env.NEXT_PUBLIC_API_URL ?? "");
 
 export const config = {
   appName: "Bizwoke Nova",

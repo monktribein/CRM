@@ -7,7 +7,7 @@ import helmet from 'helmet';
 import { timingSafeEqual } from 'node:crypto';
 import { requestContextMiddleware } from './common/request-context.js';
 import { createValidationPipe } from './common/validation.js';
-import { allowedOrigins, type EnvironmentVariables } from './config/env.js';
+import { allowedOrigins, isAllowedOrigin, type EnvironmentVariables } from './config/env.js';
 
 export const API_PREFIX = 'api/v1';
 
@@ -33,7 +33,7 @@ export function configureApp(app: NestExpressApplication) {
   app.use(requestContextMiddleware);
 
   app.enableCors({
-    origin: (origin, cb) => cb(null, !origin || origins.includes(origin)),
+    origin: (origin, cb) => cb(null, !origin || isAllowedOrigin(origin, origins)),
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Authorization', 'Content-Type', 'Accept', 'X-Request-Id'],
