@@ -18,7 +18,7 @@ Browser ──HTTPS──▶ Vercel (Next.js UI)
 
 ## Run locally
 
-Prerequisites: **Node.js 22.12+** and **MongoDB 5.0+** (local install or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster).
+Prerequisites: **Node.js 24+** and **MongoDB 5.0+** (local install or a free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster).
 
 ```bash
 # 1. API — backend/.env already exists with generated JWT secrets.
@@ -64,7 +64,7 @@ Public sign-up does not exist. `db:bootstrap` creates the first Super Admin, and
 2. Copy the connection string, e.g. `mongodb+srv://user:pass@cluster.example.mongodb.net/bizwoke-nova`.
 
 ### 2. API: Render
-1. In the Render dashboard, choose **New → Blueprint** and select this repository. [`render.yaml`](render.yaml) defines the service (root `backend/`, Node 22, health check `/api/v1/health`) and generates both JWT secrets.
+1. In the Render dashboard, choose **New → Blueprint** and select this repository. [`render.yaml`](render.yaml) defines the service (root `backend/`, Node 24, health check `/api/v1/health`) and generates both JWT secrets.
 2. Set the secret environment variables in the dashboard:
    - `MONGODB_URI`: the Atlas connection string.
    - `FRONTEND_URL`: your Vercel URL, e.g. `https://bizwoke-nova.vercel.app`. Use commas to list several origins; each must be `https://`.
