@@ -27,6 +27,7 @@ import type {
   TaskInput,
   TaskQuery,
   TaskReport,
+  WorkDetailReport,
   TaskStatus,
   TeamPerformanceRow,
   UserRef,
@@ -153,6 +154,7 @@ export const projectsApi = {
 
 export const reportsApi = {
   tasks: (query: ReportQuery) => apiRequest<TaskReport>("/reports/tasks", { query: { ...query } }),
+  activity: (query: ReportQuery) => apiRequest<WorkDetailReport>("/reports/activity", { query: { ...query } }),
   employees: (query: ReportQuery) =>
     apiRequest<EmployeeReportRow[]>("/reports/employees", { query: { ...query } }),
   departments: (query: ReportQuery) =>

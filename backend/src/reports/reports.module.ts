@@ -1,5 +1,7 @@
 import { Controller, ForbiddenException, Get, Module, Query } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ActivityLog, ActivityLogSchema } from '../activity-logs/activity-log.schema.js';
 import { can, type AuthUser } from '../common/auth-user.js';
 import { csvFile } from '../common/csv.js';
 import { CurrentUser, RequirePermissions } from '../common/decorators.js';
@@ -56,6 +58,12 @@ export class ReportsController {
     return this.reports.taskReport(user, q);
   }
 
+  /** Day-by-day work detail: every task touched in the range, with subtasks, time logged and activity. */
+  @Get('activity')
+  activity(@CurrentUser() user: AuthUser, @Query() q: ReportQueryDto) {
+    return this.reports.workDetail(user, q);
+  }
+
   @Get('employees')
   async employees(@CurrentUser() user: AuthUser, @Query() q: ReportQueryDto) {
     const rows = await this.reports.employeeReport(user, q);
@@ -78,7 +86,7 @@ export class ReportsController {
 }
 
 @Module({
-  imports: [TasksModule],
+  imports: [TasksModule, MongooseModule.forFeature([{ name: ActivityLog.name, schema: ActivityLogSchema }])],
   controllers: [DashboardController, ReportsController],
   providers: [ReportsService],
 })

@@ -25,7 +25,7 @@ import { ErrorState, EmptyState } from "@/components/common/states";
 import { UserStack } from "@/components/common/user-avatar";
 import { useAuth } from "@/components/providers/auth-provider";
 import { ChartCard, ChartTooltip, Legend, SERIES, STATUS_COLORS, axisProps, gridProps } from "@/components/charts/chart-kit";
-import { DueDate, PriorityBadge, ProgressBar } from "@/components/tasks/task-badges";
+import { DueDate, PriorityBadge, ProgressBar, StatusBadge } from "@/components/tasks/task-badges";
 import { Panel } from "@/components/tasks/task-mini-list";
 import { useDepartments } from "@/hooks/use-lookups";
 import { reportsApi } from "@/lib/api/services";
@@ -34,11 +34,11 @@ import { statusMeta } from "@/lib/task-meta";
 import type { ReportKind, ReportQuery } from "@/lib/types";
 
 const ALL = "__all__";
-type Preset = "7d" | "30d" | "90d" | "month" | "custom";
+type Preset = "today" | "7d" | "30d" | "90d" | "month" | "custom";
 const today = () => format(new Date(), "yyyy-MM-dd");
 function rangeFor(p: Exclude<Preset, "custom">) {
   const now = new Date();
-  const from = p === "month" ? startOfMonth(now) : subDays(now, p === "7d" ? 7 : p === "30d" ? 30 : 90);
+  const from = p === "today" ? now : p === "month" ? startOfMonth(now) : subDays(now, p === "7d" ? 7 : p === "30d" ? 30 : 90);
   return { from: format(from, "yyyy-MM-dd"), to: today() };
 }
 
@@ -76,6 +76,7 @@ export default function ReportsPage() {
 
   const tasks = useQuery({ queryKey: qk.reports("tasks", query), queryFn: () => reportsApi.tasks(query), enabled: !invalidRange });
   const employees = useQuery({ queryKey: qk.reports("employees", query), queryFn: () => reportsApi.employees(query), enabled: !invalidRange });
+  const work = useQuery({ queryKey: qk.reports("activity", query), queryFn: () => reportsApi.activity(query), enabled: !invalidRange });
   const depts = useQuery({ queryKey: qk.reports("departments", query), queryFn: () => reportsApi.departments(query), enabled: !invalidRange });
 
   const exporter = useMutation({
@@ -124,6 +125,7 @@ export default function ReportsPage() {
           <Select value={preset} onValueChange={(v) => setPreset(v as Preset)}>
             <SelectTrigger size="sm" className="w-40"><CalendarRange className="text-muted-foreground" /><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
               <SelectItem value="7d">Last 7 days</SelectItem>
               <SelectItem value="30d">Last 30 days</SelectItem>
               <SelectItem value="90d">Last 90 days</SelectItem>
@@ -333,6 +335,57 @@ export default function ReportsPage() {
           )}
         </Panel>
       </div>
+
+      <Panel title="Work detail" description="Everything worked on in the selected dates — task → subtasks, time and activity">
+        {work.isLoading ? null : !work.data?.tasks.length ? (
+          <EmptyState icon={CheckCircle2} title="No work recorded" description="No task activity or time was logged in this range." className="py-8" />
+        ) : (
+          <div className="divide-y">
+            <p className="px-4 py-2 text-xs text-muted-foreground">
+              {work.data.summary.tasksWorked} tasks worked · {work.data.summary.completed} completed · {Math.round((work.data.summary.loggedMinutes / 60) * 10) / 10}h logged · {work.data.summary.activities} updates
+            </p>
+            {work.data.tasks.map((w) => (
+              <details key={w.id} className="group px-4 py-3">
+                <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1">
+                  <Link href={`/tasks/${w.id}`} className="font-medium hover:text-primary hover:underline">{w.title}</Link>
+                  <span className="font-mono text-xs text-muted-foreground">{w.key}</span>
+                  <StatusBadge status={w.status} />
+                  {w.completedInRange && <span className="text-xs font-medium text-green-600">Completed in range</span>}
+                  <span className="ml-auto text-xs text-muted-foreground tabular">
+                    {w.progressPercentage}% · subtasks {w.subtasks.done}/{w.subtasks.total} · {Math.round((w.loggedMinutes / 60) * 10) / 10}h
+                  </span>
+                </summary>
+                <div className="mt-3 grid gap-4 text-[13px] md:grid-cols-3">
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Subtasks</p>
+                    {w.subtasks.items.length ? (
+                      <ul className="space-y-1">
+                        {w.subtasks.items.map((s) => <li key={s.id} className={s.done ? "text-muted-foreground line-through" : ""}>{s.done ? "✓" : "○"} {s.label}</li>)}
+                      </ul>
+                    ) : <p className="text-muted-foreground">No subtasks</p>}
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Time logged</p>
+                    {w.timeEntries.length ? (
+                      <ul className="space-y-1">
+                        {w.timeEntries.map((e, i) => <li key={i}>{e.by} · {Math.round((e.minutes / 60) * 10) / 10}h{e.note ? ` — ${e.note}` : ""}</li>)}
+                      </ul>
+                    ) : <p className="text-muted-foreground">No time logged</p>}
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">Activity</p>
+                    {w.activity.length ? (
+                      <ul className="space-y-1">
+                        {w.activity.map((a, i) => <li key={i}><span className="text-muted-foreground tabular">{format(new Date(a.at), "MMM d, HH:mm")}</span> {a.description}</li>)}
+                      </ul>
+                    ) : <p className="text-muted-foreground">No updates</p>}
+                  </div>
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

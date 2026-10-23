@@ -1,6 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { ActivityLog } from '../activity-logs/activity-log.schema.js';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service.js';
 import { can, type AuthUser } from '../common/auth-user.js';
 import { refOf, RefsService } from '../core/refs.service.js';
@@ -31,6 +32,7 @@ export class ReportsService {
   constructor(
     @InjectModel(Task.name) private readonly tasks: Model<Task>,
     @InjectModel(User.name) private readonly users: Model<User>,
+    @InjectModel(ActivityLog.name) private readonly logs: Model<ActivityLog>,
     private readonly scope: ScopeService,
     private readonly refs: RefsService,
     private readonly tasksService: TasksService,
@@ -53,7 +55,11 @@ export class ReportsService {
     return { from, to };
   }
 
-  /** Tasks active within the window (created before it ends, due after it starts). */
+  /**
+   * Tasks relevant to the window: completed tasks only if they were completed inside it
+   * (so "today" shows today's completions, not all-time ones), and unfinished tasks that
+   * existed by the end of the window.
+   */
   private async reportFilter(user: AuthUser, q: ReportQueryDto) {
     const { from, to } = this.range(q);
     const team = await this.teamFilter(user);
@@ -62,7 +68,15 @@ export class ReportsService {
     if (q.projectId) dimensions.projectId = oid(q.projectId);
     const filter: Record<string, unknown> = {
       ...dimensions,
-      $and: [team, { createdAt: { $lte: to } }, { dueDate: { $gte: from } }],
+      $and: [
+        team,
+        {
+          $or: [
+            { status: 'completed', completedAt: { $gte: from, $lte: to } },
+            { status: { $ne: 'completed' }, createdAt: { $lte: to } },
+          ],
+        },
+      ],
     };
     return { filter, team, dimensions, from, to };
   }
@@ -167,6 +181,80 @@ export class ReportsService {
         assignedTo: t.assignedTo.map((a) => refOf(people, a)),
         departmentName: depts.get(String(t.departmentId)) ?? '',
       })),
+    };
+  }
+
+  /**
+   * Work detail for the selected range: every task that was worked on (activity, time logged
+   * or completed in the range), with its subtasks (checklist), time entries and activity trail.
+   */
+  async workDetail(user: AuthUser, q: ReportQueryDto) {
+    const { from, to } = this.range(q);
+    const team = await this.teamFilter(user);
+    const dimensions: Record<string, unknown> = {};
+    if (q.departmentId) dimensions.departmentId = oid(q.departmentId);
+    if (q.projectId) dimensions.projectId = oid(q.projectId);
+    const inRange = { $gte: from, $lte: to };
+
+    const logs = await this.logs
+      .find({ organizationId: oid(user.organizationId), entityType: 'task', entityId: { $ne: null }, createdAt: inRange })
+      .sort({ createdAt: 1 })
+      .limit(5000)
+      .lean();
+    const logTaskIds = [...new Set(logs.map((l) => String(l.entityId)))].map((id) => oid(id));
+
+    const docs = await this.tasks
+      .find({
+        ...dimensions,
+        $and: [team, { $or: [{ _id: { $in: logTaskIds } }, { 'timeEntries.date': inRange }, { completedAt: inRange }] }],
+      })
+      .sort({ updatedAt: -1 })
+      .limit(200)
+      .lean();
+    const visible = new Set(docs.map((t) => String(t._id)));
+    const [people, depts, projects] = await Promise.all([
+      this.refs.userRefs(docs.flatMap((t) => [...t.assignedTo, ...t.timeEntries.map((e) => e.userId)])),
+      this.refs.departmentNames(docs.map((t) => t.departmentId)),
+      this.refs.projectNames(docs.map((t) => t.projectId)),
+    ]);
+
+    const tasks = docs.map((t) => {
+      const entries = t.timeEntries.filter((e) => e.date >= from && e.date <= to);
+      return {
+        id: String(t._id),
+        key: t.taskCode,
+        title: t.title,
+        status: t.status,
+        priority: t.priority,
+        progressPercentage: t.progressPercentage,
+        dueDate: t.dueDate,
+        completedAt: t.completedAt,
+        completedInRange: !!t.completedAt && t.completedAt >= from && t.completedAt <= to,
+        departmentName: depts.get(String(t.departmentId)) ?? '',
+        projectName: projects.get(String(t.projectId)) ?? '',
+        assignedTo: t.assignedTo.map((a) => refOf(people, a)),
+        subtasks: {
+          done: t.checklist.filter((c) => c.done).length,
+          total: t.checklist.length,
+          items: t.checklist.map((c) => ({ id: String(c._id), label: c.label, done: c.done })),
+        },
+        loggedMinutes: entries.reduce((s, e) => s + e.minutes, 0),
+        timeEntries: entries.map((e) => ({ date: e.date, minutes: e.minutes, note: e.note, by: refOf(people, e.userId).name })),
+        activity: logs
+          .filter((l) => String(l.entityId) === String(t._id))
+          .map((l) => ({ at: l.createdAt, action: l.action, by: l.actorName, description: l.description })),
+      };
+    });
+
+    return {
+      range: { from: from.toISOString(), to: to.toISOString() },
+      summary: {
+        tasksWorked: tasks.length,
+        completed: tasks.filter((t) => t.completedInRange).length,
+        loggedMinutes: tasks.reduce((s, t) => s + t.loggedMinutes, 0),
+        activities: logs.filter((l) => visible.has(String(l.entityId))).length,
+      },
+      tasks,
     };
   }
 

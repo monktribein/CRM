@@ -533,3 +533,28 @@ export interface NotificationPreferences {
   inAppComments: boolean;
   dailyDigest: boolean;
 }
+
+/** GET /reports/activity — what was worked on in the selected range. */
+export interface WorkDetailTask {
+  id: string;
+  key: string;
+  title: string;
+  status: TaskStatus;
+  priority: Task["priority"];
+  progressPercentage: number;
+  dueDate: string;
+  completedAt: string | null;
+  completedInRange: boolean;
+  departmentName: string;
+  projectName: string;
+  assignedTo: Task["assignedTo"];
+  subtasks: { done: number; total: number; items: { id: string; label: string; done: boolean }[] };
+  loggedMinutes: number;
+  timeEntries: { date: string; minutes: number; note: string | null; by: string }[];
+  activity: { at: string; action: string; by: string; description: string }[];
+}
+export interface WorkDetailReport {
+  range: { from: string; to: string };
+  summary: { tasksWorked: number; completed: number; loggedMinutes: number; activities: number };
+  tasks: WorkDetailTask[];
+}
