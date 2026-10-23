@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ActivityLogsService } from '../activity-logs/activity-logs.service.js';
+import { hashPassword } from '../auth/password.js';
 import { TokenService } from '../auth/tokens/token.service.js';
 import { can, type AuthUser } from '../common/auth-user.js';
 import { Counter, nextSequence } from '../common/counter.schema.js';
@@ -199,12 +200,16 @@ export class UsersService {
       jobFunction: dto.jobFunction,
       departmentId: oid(dto.departmentId),
       managerId: dto.managerId ? oid(dto.managerId) : null,
-      status: 'invited',
+      status: dto.password ? 'active' : 'invited',
+      passwordHash: dto.password ? await hashPassword(dto.password) : null,
       joinedAt: new Date(dto.joinDate),
       createdBy: oid(actor.id),
     });
     await this.syncMembership(user._id, null, user.departmentId);
-    const invite = await this.issueInvitation(user._id, user.email, fullName(user), dto.sendInvitation);
+    // An admin-set password activates the account immediately; otherwise it waits on the invitation.
+    const invite = dto.password
+      ? { emailSent: false, invitationUrl: null }
+      : await this.issueInvitation(user._id, user.email, fullName(user), dto.sendInvitation);
     await this.activity.record({
       actor,
       action: 'user.created',
@@ -212,7 +217,7 @@ export class UsersService {
       entityId: user._id,
       entityLabel: fullName(user),
       description: `created an account for ${fullName(user)}`,
-      changes: { securityRole: dto.role, departmentId: dto.departmentId, emailSent: invite.emailSent },
+      changes: { securityRole: dto.role, departmentId: dto.departmentId, emailSent: invite.emailSent, passwordSet: !!dto.password },
     });
     const [employee] = await this.toEmployees([user.toObject()]);
     return { user: employee, ...invite };

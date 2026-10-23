@@ -10,6 +10,7 @@ import {
   IsString,
   Length,
   MaxLength,
+  MinLength,
   ValidateIf,
 } from 'class-validator';
 import { PaginationQueryDto, toArray } from '../common/pagination.js';
@@ -29,6 +30,8 @@ export class CreateUserDto {
   @ApiPropertyOptional({ nullable: true }) @IsOptional() @ValidateIf((_, v) => v !== null) @IsMongoId() managerId?: string | null;
   @ApiProperty({ example: '2026-10-01' }) @IsDateString() joinDate: string;
   @ApiProperty() @IsBoolean() sendInvitation: boolean;
+  /** When set, the account is created active with this password and no invitation is issued. */
+  @ApiPropertyOptional() @IsOptional() @IsString() @MinLength(1, { message: 'Enter a password.' }) @MaxLength(128) password?: string;
 }
 
 export class UpdateUserDto {

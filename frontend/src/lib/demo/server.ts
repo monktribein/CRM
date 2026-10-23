@@ -795,11 +795,13 @@ async function route(method: string, path: string, q: URLSearchParams, body: Bod
         name: `${input.firstName.trim()} ${input.lastName.trim()}`, firstName: input.firstName.trim(), lastName: input.lastName.trim(),
         email, avatarUrl: null, title: input.title || null, departmentId: dept.id, departmentName: dept.name,
         role: input.role, jobFunction: input.jobFunction, managerId: manager?.id ?? null, managerName: manager?.name ?? null,
-        status: "invited", joinDate: input.joinDate, assignedTaskCount: 0, invitationSentAt: nowIso(), lastLoginAt: null,
-        password: crypto.randomUUID(),
+        status: input.password ? "active" : "invited", joinDate: input.joinDate, assignedTaskCount: 0,
+        invitationSentAt: input.password ? null : nowIso(), lastLoginAt: null,
+        password: input.password || crypto.randomUUID(),
       };
       users.push(created);
       logActivity(me, "user.created", "user", created.id, created.name, `created an account for ${created.name}`);
+      if (input.password) return ok({ user: publicEmployee(created), emailSent: false, invitationUrl: null }, 201);
       // Demo mode has no mail transport, so the one-time link is returned.
       return ok({ user: publicEmployee(created), emailSent: false, invitationUrl: `${location.origin}/accept-invitation?token=demo-invite-${created.id}` }, 201);
     }

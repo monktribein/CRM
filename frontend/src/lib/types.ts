@@ -327,6 +327,8 @@ export interface EmployeeInput {
   managerId?: string | null;
   joinDate: string;
   sendInvitation: boolean;
+  /** Admin-set sign-in password. When present the account is active immediately. */
+  password?: string;
 }
 
 export interface EmployeeUpdateInput {

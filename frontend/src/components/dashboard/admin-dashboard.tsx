@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { AlertOctagon, CheckCircle2, ListChecks, OctagonAlert, Users } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,15 @@ import type { AdminDashboard as Data } from "@/lib/types";
 export function AdminDashboard({ data }: { data: Data }) {
   const { stats } = data;
   const trend = data.completionTrend.map((p) => ({ ...p, label: format(parseISO(p.date), "MMM d") }));
+  // Overdue tasks are a subset of active ones, so split active into on-track and overdue.
+  const totalWork = stats.completedTasks + stats.activeTasks;
+  const percentComplete = totalWork ? Math.round((stats.completedTasks / totalWork) * 100) : 0;
+  const share = (n: number) => (totalWork ? `${Math.round((n / totalWork) * 100)}%` : "0%");
+  const progress = [
+    { name: "Completed", value: stats.completedTasks, color: STATUS_COLORS.good },
+    { name: "In progress", value: stats.activeTasks - stats.overdueTasks, color: SERIES[0] },
+    { name: "Overdue", value: stats.overdueTasks, color: STATUS_COLORS.critical },
+  ].map((p) => ({ ...p, share: share(p.value) }));
 
   return (
     <div className="space-y-6">
@@ -26,9 +35,39 @@ export function AdminDashboard({ data }: { data: Data }) {
         <StatCard label="Overdue tasks" value={stats.overdueTasks} icon={OctagonAlert} tone="danger" hint="Needs attention" href="/tasks?overdue=true" />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-5">
+      <div className="grid gap-4 xl:grid-cols-3">
         <ChartCard
-          className="xl:col-span-3"
+          title="Overall completion"
+          description="Share of all current work that is completed"
+          empty={!totalWork}
+          table={{
+            rows: progress,
+            columns: [
+              { key: "name", label: "Status" },
+              { key: "value", label: "Tasks", align: "right" },
+              { key: "share", label: "Share", align: "right" },
+            ],
+          }}
+          actions={<Legend items={progress.map((p) => ({ label: p.name, color: p.color }))} />}
+        >
+          <div className="relative h-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={progress} dataKey="value" nameKey="name" innerRadius="62%" outerRadius="90%" paddingAngle={2} stroke="none" startAngle={90} endAngle={-270}>
+                  {progress.map((p) => <Cell key={p.name} fill={p.color} />)}
+                </Pie>
+                <Tooltip content={<ChartTooltip valueFormatter={(v) => `${v} (${share(Number(v))})`} />} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-3xl font-semibold tabular">{percentComplete}%</span>
+              <span className="text-xs text-muted-foreground">complete</span>
+            </div>
+          </div>
+        </ChartCard>
+
+        <ChartCard
+          className="xl:col-span-2"
           title="Department performance"
           description="Completed, active and overdue tasks by department"
           empty={!data.departmentPerformance.length}
@@ -64,9 +103,10 @@ export function AdminDashboard({ data }: { data: Data }) {
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
+      </div>
 
+      <div className="grid gap-4">
         <ChartCard
-          className="xl:col-span-2"
           title="Task completion trend"
           description="Created vs completed, last 14 days"
           table={{

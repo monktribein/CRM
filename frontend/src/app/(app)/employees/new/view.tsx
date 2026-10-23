@@ -6,16 +6,14 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Loader2, UserPlus } from "lucide-react";
+import { Check, CheckCircle2, Copy, Eye, EyeOff, KeyRound, Loader2, UserPlus, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Field, applyFieldErrors } from "@/components/common/field";
 import { PageHeader } from "@/components/common/page-header";
 import { useCurrentUser } from "@/components/providers/auth-provider";
 import { AccountStatusBadge, RoleBadge } from "@/components/employees/employee-badges";
-import { InvitationOutcome } from "@/components/employees/invitation-link";
 import { useManagers } from "@/components/employees/use-managers";
 import { useDepartments } from "@/hooks/use-lookups";
 import { ApiError } from "@/lib/api/client";
@@ -38,9 +36,36 @@ const schema = z.object({
   departmentId: z.string().min(1, "Select a department."),
   managerId: z.string(),
   joinDate: z.string().min(1, "Pick a join date."),
-  sendInvitation: z.boolean(),
+  password: z.string().min(1, "Enter or generate a password.").max(128),
 });
 type Values = z.infer<typeof schema>;
+
+const PASSWORD_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+/** Random 12-character password without look-alike characters (0/O, 1/l/I). */
+function generatePassword(length = 12) {
+  const bytes = crypto.getRandomValues(new Uint32Array(length));
+  return Array.from(bytes, (b) => PASSWORD_CHARS[b % PASSWORD_CHARS.length]).join("");
+}
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      aria-label={`Copy ${label}`}
+      onClick={async () => {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+    >
+      {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}
+    </Button>
+  );
+}
 
 function Step({ n, title, description, children }: { n: number; title: string; description: string; children: React.ReactNode }) {
   return (
@@ -61,13 +86,14 @@ export default function NewEmployeePage() {
   const departments = useDepartments();
   const managers = useManagers();
   const roles = grantableRoles(me.role);
-  const [result, setResult] = useState<InvitationResult | null>(null);
+  const [result, setResult] = useState<{ invitation: InvitationResult; password: string } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
       firstName: "", lastName: "", email: "", title: "", role: "employee", jobFunction: "",
-      departmentId: "", managerId: NONE, joinDate: toDateInput(new Date()), sendInvitation: true,
+      departmentId: "", managerId: NONE, joinDate: toDateInput(new Date()), password: "",
     },
   });
   const { errors, isSubmitting } = form.formState;
@@ -83,6 +109,7 @@ export default function NewEmployeePage() {
         role: v.role as Role,
         jobFunction: v.jobFunction as JobFunction,
         managerId: v.managerId === NONE ? null : v.managerId,
+        sendInvitation: false,
       }),
   });
 
@@ -90,7 +117,7 @@ export default function NewEmployeePage() {
     try {
       const r = await create.mutateAsync(v);
       void qc.invalidateQueries({ queryKey: qk.users });
-      setResult(r);
+      setResult({ invitation: r, password: v.password });
     } catch (e) {
       if (e instanceof ApiError && applyFieldErrors(e.fieldErrors, form.setError)) return;
       form.setError("root", { message: e instanceof Error ? e.message : "Couldn't create the account." });
@@ -98,7 +125,7 @@ export default function NewEmployeePage() {
   });
 
   if (result) {
-    const u = result.user;
+    const u = result.invitation.user;
     return (
       <div className="mx-auto max-w-2xl space-y-5">
         <div className="rounded-lg border bg-card p-6 shadow-xs">
@@ -117,13 +144,28 @@ export default function NewEmployeePage() {
             <div><dt className="text-xs text-muted-foreground">Department</dt><dd className="mt-1">{u.departmentName}</dd></div>
             <div><dt className="text-xs text-muted-foreground">Reporting manager</dt><dd className="mt-1">{u.managerName ?? "—"}</dd></div>
           </dl>
-          <div className="mt-5"><InvitationOutcome result={result} /></div>
+          <div className="mt-5 space-y-3 rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <p className="flex items-center gap-2 font-medium"><KeyRound className="size-4" aria-hidden="true" /> Login credentials</p>
+            <p className="text-xs">Share these with {u.name}. The password can&apos;t be shown again after you leave this page.</p>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-xs">Login ID</span>
+                <Input readOnly value={u.email} className="h-8 bg-white font-mono text-xs" aria-label="Login ID" onFocus={(e) => e.target.select()} />
+                <CopyButton value={u.email} label="login ID" />
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-xs">Password</span>
+                <Input readOnly value={result.password} className="h-8 bg-white font-mono text-xs" aria-label="Password" onFocus={(e) => e.target.select()} />
+                <CopyButton value={result.password} label="password" />
+              </div>
+            </div>
+          </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Once they activate their account and sign in, they&apos;ll see the workspace for the <span className="font-medium">{roleMeta[u.role].label}</span> role.
+            The account is active. When they sign in, they&apos;ll see the workspace for the <span className="font-medium">{roleMeta[u.role].label}</span> role.
           </p>
         </div>
         <div className="flex gap-2">
-          <Button onClick={() => { form.reset(); setResult(null); }}><UserPlus /> Add another</Button>
+          <Button onClick={() => { form.reset(); setShowPassword(false); setResult(null); }}><UserPlus /> Add another</Button>
           <Button variant="outline" asChild><Link href="/employees">Back to directory</Link></Button>
         </div>
       </div>
@@ -132,7 +174,7 @@ export default function NewEmployeePage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Add employee" description="Create the account, assign a role, then place them in a department. They activate it from their invitation." />
+      <PageHeader title="Add employee" description="Create the account, assign a role, then place them in a department, then set their login password." />
       <form onSubmit={submit} noValidate className="overflow-hidden rounded-lg border bg-card shadow-xs">
         {errors.root && <p role="alert" className="m-5 mb-0 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errors.root.message}</p>}
 
@@ -210,16 +252,32 @@ export default function NewEmployeePage() {
           </div>
         </Step>
 
-        <Step n={4} title="Activation" description="The account stays Invited until they set a password.">
-          <Controller control={form.control} name="sendInvitation" render={({ field }) => (
-            <label className="flex items-start gap-3 rounded-md border p-3">
-              <Switch checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
-              <span>
-                <span className="block text-sm font-medium">Email an invitation</span>
-                <span className="block text-xs text-muted-foreground">If email delivery isn&apos;t configured on the server, you&apos;ll get a one-time activation link to share instead.</span>
-              </span>
-            </label>
-          )} />
+        <Step n={4} title="Login credentials" description="They sign in with their work email and this password. The account is active right away.">
+          <Field label="Password" error={errors.password?.message} required>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input type={showPassword ? "text" : "password"} autoComplete="new-password" className="pr-9 font-mono" {...form.register("password")} />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  className="absolute inset-y-0 right-0 flex w-9 items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  form.setValue("password", generatePassword(), { shouldValidate: true, shouldDirty: true });
+                  setShowPassword(true);
+                }}
+              >
+                <Wand2 /> Generate
+              </Button>
+            </div>
+          </Field>
         </Step>
 
         <div className="flex justify-end gap-2 border-t bg-muted/30 px-5 py-3">

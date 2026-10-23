@@ -136,6 +136,15 @@ describe('Authorisation & data scoping (e2e)', () => {
       expect(raw!.deletedAt).toBeInstanceOf(Date);
     });
 
+    it('activates accounts created with an admin-set password so they can sign in', async () => {
+      const created = await h.http().post('/api/v1/users').set(bearer(t.admin!)).send({
+        firstName: 'Pre', lastName: 'Set', email: 'preset@acme.test', role: 'employee', jobFunction: 'other', departmentId: String(h.fx.devId), joinDate: '2026-10-01', sendInvitation: false, password: 'abc',
+      }).expect(201);
+      expect(created.body.data).toMatchObject({ user: { status: 'active' }, invitationUrl: null });
+      const login = await h.http().post('/api/v1/auth/login').send({ email: 'preset@acme.test', password: 'abc' }).expect(200);
+      expect(login.body.data.user).toMatchObject({ email: 'preset@acme.test', role: 'employee' });
+    });
+
     it('prevents duplicate department names (case-insensitive)', async () => {
       await h.http().post('/api/v1/departments').set(bearer(t.admin!)).send({ name: 'development' }).expect(409);
     });
