@@ -207,8 +207,8 @@ describe('Database layer (e2e)', () => {
       const second = await seedDevelopmentData(models(), 'Dev-password-123', 'development');
       expect(second.summary).toEqual({ users: 0, projects: 0, tasks: 0, comments: 0 });
       expect(await counts()).toEqual(before);
-      const statuses = await m.Task.distinct('status', { organizationId: org });
-      expect(statuses.sort()).toEqual(['blocked', 'cancelled', 'completed', 'in_progress', 'in_review', 'todo']);
+      const statuses = (await m.Task.distinct('status', { organizationId: org })) as string[];
+      expect(statuses.sort((a, b) => a.localeCompare(b))).toEqual(['blocked', 'cancelled', 'completed', 'in_progress', 'in_review', 'todo']);
       const admin = await m.User.findOne({ organizationId: org, email: 'admin@example.com' }).select('+passwordHash').lean();
       expect(admin).toMatchObject({ securityRole: 'super_admin' });
       expect(admin!.passwordHash).toMatch(/^\$argon2id\$/);

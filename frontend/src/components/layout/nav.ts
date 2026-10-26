@@ -8,7 +8,14 @@ import {
   LayoutDashboard,
   ListChecks,
   ListTodo,
+  CloudUpload,
+  Images,
+  LogIn,
+  MonitorCheck,
+  MonitorPlay,
   Settings,
+  ShieldCheck,
+  SlidersHorizontal,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -50,6 +57,19 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: "Reports & Analytics", href: "/reports", icon: BarChart3, any: ["reports.view"] },
       { label: "Activity Logs", href: "/activity", icon: History, any: ["activity.view"] },
+      { label: "Screenshot Monitoring", href: "/monitoring", icon: MonitorCheck, any: ["monitoring.view"] },
+    ],
+  },
+  {
+    // Organisation-wide monitoring; Super Admin only (enforced by the API).
+    label: "Employee Monitoring",
+    items: [
+      { label: "Login Activity", href: "/monitoring/logins", icon: LogIn, any: ["monitoring.super"] },
+      { label: "Screenshot Gallery", href: "/monitoring/gallery", icon: Images, any: ["monitoring.super"] },
+      { label: "Monitoring Sessions", href: "/monitoring/sessions", icon: MonitorPlay, any: ["monitoring.super"] },
+      { label: "Upload & Sync Status", href: "/monitoring/uploads", icon: CloudUpload, any: ["monitoring.super"] },
+      { label: "Monitoring Settings", href: "/monitoring/settings", icon: SlidersHorizontal, any: ["monitoring.super"] },
+      { label: "Access Audit Logs", href: "/monitoring/audit", icon: ShieldCheck, any: ["monitoring.super"] },
     ],
   },
 ];
@@ -72,6 +92,8 @@ const ROUTE_RULES: { match: (path: string) => boolean; any: Permission[] }[] = [
   { match: (p) => p.startsWith("/employees"), any: ["employees.view"] },
   { match: (p) => p.startsWith("/reports"), any: ["reports.view"] },
   { match: (p) => p.startsWith("/activity"), any: ["activity.view"] },
+  { match: (p) => /^\/monitoring\/(logins|gallery|sessions|uploads|settings|audit)(\/|$)/.test(p), any: ["monitoring.super"] },
+  { match: (p) => p.startsWith("/monitoring"), any: ["monitoring.view"] },
 ];
 
 export function requiredPermissions(pathname: string): Permission[] {
@@ -91,6 +113,12 @@ const SEGMENT_LABELS: Record<string, string> = {
   reports: "Reports & Analytics",
   notifications: "Notifications",
   activity: "Activity Logs",
+  monitoring: "Screenshot Monitoring",
+  logins: "Login Activity",
+  gallery: "Screenshot Gallery",
+  sessions: "Monitoring Sessions",
+  uploads: "Upload & Sync Status",
+  audit: "Access Audit Logs",
   settings: "Settings",
 };
 

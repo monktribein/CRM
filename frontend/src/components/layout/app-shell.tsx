@@ -10,6 +10,7 @@ import { BreadcrumbProvider } from "@/components/layout/breadcrumb-context";
 import { requiredPermissions } from "@/components/layout/nav";
 import { SidebarContent } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
+import { MonitoringBanner, MonitoringProvider } from "@/components/monitoring/monitoring-provider";
 import { cn } from "@/lib/utils";
 
 const COLLAPSE_KEY = "bn.sidebar.collapsed";
@@ -66,6 +67,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 
         <div className={cn("flex min-w-0 flex-1 flex-col transition-[padding] duration-200", collapsed ? "lg:pl-16" : "lg:pl-60")}>
           <Topbar onOpenMobileNav={() => setMobileOpen(true)} />
+          <MonitoringBanner />
           <main id="main" className="flex-1 px-4 py-6 lg:px-6">
             <motion.div
               key={pathname}
@@ -120,5 +122,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   if (status === "unreachable") return <ServerUnreachable onRetry={retry} />;
   if (status === "unauthenticated") return <FullPageLoader label="Redirecting to sign in…" />;
   if (!allowed) return <FullPageLoader label="Checking access…" />;
-  return <Shell>{children}</Shell>;
+  return (
+    <MonitoringProvider>
+      <Shell>{children}</Shell>
+    </MonitoringProvider>
+  );
 }

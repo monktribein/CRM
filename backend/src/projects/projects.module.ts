@@ -162,7 +162,7 @@ export class ProjectsService {
 
   async update(user: AuthUser, id: string, dto: UpdateProjectDto) {
     const p = await this.find(user, id);
-    await this.validate(user.organizationId, { ...dto, startDate: dto.startDate ?? p.startDate.toISOString(), dueDate: dto.dueDate ?? p.dueDate.toISOString() });
+    await this.validate(user.organizationId, Object.assign({}, dto, { startDate: dto.startDate ?? p.startDate.toISOString(), dueDate: dto.dueDate ?? p.dueDate.toISOString() }));
     if (dto.key && dto.key !== p.projectCode && (await this.projects.exists({ organizationId: oid(user.organizationId), projectCode: dto.key }))) {
       throw new ConflictException({ message: 'Project key is already in use.', details: { key: ['Project key is already in use.'] } });
     }

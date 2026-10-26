@@ -54,17 +54,32 @@ export class SettingsService {
     if (dto.reviewRequired !== undefined) set['settings.reviewRequired'] = dto.reviewRequired;
     if (dto.timezone !== undefined) set.timezone = dto.timezone;
     const org = await this.orgs.findByIdAndUpdate(user.organizationId, { $set: set }, { returnDocument: 'after' }).lean();
-    await this.activity.record({ actor: user, action: 'settings.updated', entityType: 'settings', description: 'updated organisation settings', changes: { ...dto } });
+    await this.activity.record({ actor: user, action: 'settings.updated', entityType: 'settings', description: 'updated organisation settings', changes: { name: dto.name, dueSoonThresholdDays: dto.dueSoonThresholdDays, reviewRequired: dto.reviewRequired, timezone: dto.timezone } });
     return this.present(org!);
   }
 
   async preferences(user: AuthUser) {
     const u = await this.users.findById(user.id).select('notificationPreferences').lean();
-    return { emailAssignments: true, emailDueReminders: true, emailReviews: true, inAppComments: true, dailyDigest: false, ...(u?.notificationPreferences ?? {}) };
+    const p = u?.notificationPreferences;
+    return {
+      emailAssignments: p?.emailAssignments ?? true,
+      emailDueReminders: p?.emailDueReminders ?? true,
+      emailReviews: p?.emailReviews ?? true,
+      inAppComments: p?.inAppComments ?? true,
+      dailyDigest: p?.dailyDigest ?? false,
+    };
   }
 
   async updatePreferences(user: AuthUser, dto: NotificationPreferencesDto) {
-    await this.users.updateOne({ _id: oid(user.id) }, { notificationPreferences: { ...dto } });
+    await this.users.updateOne({ _id: oid(user.id) }, {
+      notificationPreferences: {
+        emailAssignments: dto.emailAssignments,
+        emailDueReminders: dto.emailDueReminders,
+        emailReviews: dto.emailReviews,
+        inAppComments: dto.inAppComments,
+        dailyDigest: dto.dailyDigest,
+      },
+    });
     return this.preferences(user);
   }
 }

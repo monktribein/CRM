@@ -18,6 +18,7 @@ import { DatabaseModule } from './database/database.module.js';
 import { DepartmentsModule } from './departments/departments.module.js';
 import { HealthModule } from './health/health.module.js';
 import { MailModule } from './mail/mail.service.js';
+import { MonitoringModule } from './monitoring/monitoring.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ProjectsModule } from './projects/projects.module.js';
 import { ReportsModule } from './reports/reports.module.js';
@@ -84,6 +85,7 @@ import { UsersModule } from './users/users.module.js';
     ReportsModule,
     SettingsModule,
     SearchModule,
+    MonitoringModule,
     HealthModule,
   ],
   providers: [

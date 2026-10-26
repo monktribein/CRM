@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 
-export const ACTIVITY_ENTITIES = ['task', 'user', 'project', 'department', 'auth', 'settings'] as const;
+export const ACTIVITY_ENTITIES = ['task', 'user', 'project', 'department', 'auth', 'settings', 'monitoring'] as const;
 export type ActivityEntity = (typeof ACTIVITY_ENTITIES)[number];
 
 /** Append-only audit trail. Updates and deletes are rejected at the model level. */

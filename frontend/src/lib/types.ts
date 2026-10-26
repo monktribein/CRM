@@ -36,7 +36,10 @@ export type Permission =
   | "reports.view"
   | "reports.export"
   | "activity.view"
-  | "settings.org";
+  | "settings.org"
+  | "monitoring.view"
+  | "monitoring.manage"
+  | "monitoring.super";
 
 export type TaskStatus =
   | "todo"
@@ -363,7 +366,185 @@ export interface AppNotification {
   createdAt: string;
 }
 
-export type ActivityEntity = "task" | "user" | "project" | "department" | "auth" | "settings";
+export type ActivityEntity = "task" | "user" | "project" | "department" | "auth" | "settings" | "monitoring";
+
+/* ---------- Screenshot monitoring ---------- */
+
+export type ConsentDecision = "granted" | "declined";
+
+/** The signed-in employee's own monitoring requirement. */
+export interface MyMonitoringStatus {
+  required: boolean;
+  policy: { version: string; text: string } | null;
+  consent: { decision: ConsentDecision | null; policyVersion: string | null; at: string | null };
+  needsConsent: boolean;
+  captureIntervalSeconds: number;
+  heartbeatIntervalSeconds: number;
+  localRetentionHours: number;
+}
+
+export type MonitoringSessionStatus = "active" | "ended" | "expired";
+export type MonitoringEndReason =
+  | "logout"
+  | "user_stopped"
+  | "stream_ended"
+  | "page_closed"
+  | "session_expired"
+  | "heartbeat_timeout"
+  | "superseded"
+  | "monitoring_disabled";
+
+/** Administrator-facing status: "ended" is a confirmed logout or stop; "interrupted" is anything else. */
+export type SessionDisplayStatus = "active" | "ended" | "expired" | "interrupted";
+
+export interface MonitoringSession {
+  id: string;
+  userId: string;
+  status: MonitoringSessionStatus;
+  displayStatus: SessionDisplayStatus;
+  /** The employee's sign-in time. */
+  loginAt: string | null;
+  /** Set only for a confirmed logout — never inferred from a timeout. */
+  logoutAt: string | null;
+  lastUploadAt: string | null;
+  clientQueue: { pending: number; oldestCapturedAt: string | null; reportedAt: string } | null;
+  startedAt: string;
+  lastHeartbeatAt: string;
+  endedAt: string | null;
+  endReason: MonitoringEndReason | null;
+  displaySurface: string | null;
+  captureCount: number;
+  lastCaptureAt: string | null;
+  policyVersion: string;
+}
+
+export interface MonitoringPolicy {
+  enabled: boolean;
+  policyVersion: string;
+  policyText: string;
+  retentionDays: number;
+  localRetentionHours: number;
+  storageConfigured: boolean;
+  captureIntervalSeconds: number;
+}
+
+export interface EmployeeMonitoringStatus {
+  userId: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  enabled: boolean;
+  required: boolean;
+  consent: { decision: ConsentDecision | null; policyVersion: string | null; at: string | null; current: boolean };
+  latestSession: MonitoringSession | null;
+  lastCaptureAt: string | null;
+  failedUploads: number;
+}
+
+export interface ScreenshotRecord {
+  id: string;
+  userId: string;
+  sessionId: string;
+  captureId: string;
+  capturedAt: string;
+  status: "pending" | "uploading" | "uploaded" | "failed" | "deleted";
+  attempts: number;
+  uploadedAt: string | null;
+  sizeBytes: number | null;
+  mimeType: string | null;
+  expiresAt: string;
+  width: number | null;
+  height: number | null;
+  lastError: string | null;
+  availability: ScreenshotAvailability;
+}
+
+export type ScreenshotAvailability = "available" | "pending" | "failed" | "missing" | "deleted";
+
+/* ---------- Super Admin monitoring dashboard ---------- */
+
+export interface MonitoredEmployee {
+  id: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  jobFunction: JobFunction;
+  consent: { decision: ConsentDecision | null; policyVersion: string | null; at: string | null; current: boolean };
+}
+
+export interface AdminSessionRow extends MonitoringSession {
+  employee: MonitoredEmployee | null;
+}
+
+export interface AdminSessionDetail extends AdminSessionRow {
+  screenshotCounts: Partial<Record<ScreenshotRecord["status"], number>>;
+  timezone: string;
+}
+
+export interface AdminScreenshot extends ScreenshotRecord {
+  employee: { id: string; employeeId: string; name: string } | null;
+}
+
+export type SessionSort = "startedAt" | "loginAt" | "lastHeartbeatAt" | "endedAt" | "captureCount" | "lastUploadAt";
+
+export interface AdminSessionQuery {
+  search?: string;
+  departmentId?: string;
+  userId?: string;
+  status?: SessionDisplayStatus;
+  /** Calendar days (YYYY-MM-DD) in the organisation timezone. */
+  from?: string;
+  to?: string;
+  sort?: SessionSort;
+  order?: "asc" | "desc";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface AdminScreenshotQuery {
+  sessionId?: string;
+  userId?: string;
+  departmentId?: string;
+  availability?: ScreenshotAvailability;
+  from?: string;
+  to?: string;
+  order?: "asc" | "desc";
+  page?: number;
+  pageSize?: number;
+}
+
+export interface UploadSyncStatus {
+  storageConfigured: boolean;
+  counts: Record<"uploaded" | "pending" | "uploading" | "failed" | "deleted" | "missing", number>;
+  oldestUnsentCapturedAt: string | null;
+  problems: (AdminScreenshot & { updatedAt: string })[];
+  browserBacklog: { sessionId: string; employee: AdminScreenshot["employee"]; clientQueue: NonNullable<MonitoringSession["clientQueue"]> }[];
+}
+
+export type AccessAction = "previewed" | "downloaded" | "deleted" | "retention_purged";
+
+export interface AccessLogEntry {
+  id: string;
+  action: AccessAction;
+  actor: { id: string | null; name: string; role: Role | null };
+  employee: { id: string; employeeId: string | null; name: string };
+  screenshotId: string;
+  sessionId: string;
+  capturedAt: string;
+  ip: string | null;
+  createdAt: string;
+}
+
+export interface AccessAuditQuery {
+  action?: AccessAction;
+  search?: string;
+  from?: string;
+  to?: string;
+  page?: number;
+  pageSize?: number;
+}
 
 export interface ActivityLog {
   id: string;

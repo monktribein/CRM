@@ -101,7 +101,10 @@ function buildInit(options: RequestOptions, accept = "application/json"): Reques
   const session = sessionStore.get();
   if (session) headers.Authorization = `Bearer ${session.accessToken}`;
   let body: BodyInit | undefined;
-  if (options.body !== undefined) {
+  if (options.body instanceof FormData) {
+    // The browser sets the multipart boundary itself.
+    body = options.body;
+  } else if (options.body !== undefined) {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(options.body);
   }
@@ -226,12 +229,13 @@ export async function apiPaginated<T>(path: string, options: RequestOptions = {}
   };
 }
 
-/** Fetches a file response (e.g. a CSV report export) as a Blob. */
+/** Fetches a file response (e.g. a CSV report export or an image) as a Blob. */
 export async function apiDownload(
   path: string,
-  options: RequestOptions = {}
+  options: RequestOptions = {},
+  accept = "text/csv, application/octet-stream"
 ): Promise<{ blob: Blob; fileName: string | null }> {
-  const response = await send(path, options, "text/csv, application/octet-stream");
+  const response = await send(path, options, accept);
   const disposition = response.headers.get("Content-Disposition") ?? "";
   const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
   return { blob: await response.blob(), fileName: match ? decodeURIComponent(match[1]!) : null };

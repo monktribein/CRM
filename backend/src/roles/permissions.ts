@@ -38,6 +38,12 @@ export const PERMISSIONS = [
   'reports.export',
   'activity.view',
   'settings.org',
+  /** View screenshot-monitoring status and history (managers: their teams only). */
+  'monitoring.view',
+  /** Configure the monitoring policy, enrol employees and delete screenshots. */
+  'monitoring.manage',
+  /** Organisation-wide monitoring dashboard: login activity, gallery, uploads, access audit. Super Admin only. */
+  'monitoring.super',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -60,10 +66,12 @@ const ADMIN: readonly Permission[] = [
   'reports.export',
   'activity.view',
   'settings.org',
+  'monitoring.view',
+  'monitoring.manage',
 ];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  super_admin: ADMIN,
+  super_admin: [...ADMIN, 'monitoring.super'],
   admin: ADMIN,
   hr_manager: ['employees.view', 'employees.manage', 'departments.view', 'projects.view', 'activity.view'],
   manager: [
@@ -78,6 +86,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     'reports.view',
     'reports.export',
     'activity.view',
+    'monitoring.view',
   ],
   employee: ['projects.view'],
 };

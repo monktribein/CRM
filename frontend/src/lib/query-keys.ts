@@ -1,4 +1,12 @@
-import type { ActivityQuery, EmployeeQuery, ReportQuery, TaskQuery } from "@/lib/types";
+import type {
+  AccessAuditQuery,
+  ActivityQuery,
+  AdminScreenshotQuery,
+  AdminSessionQuery,
+  EmployeeQuery,
+  ReportQuery,
+  TaskQuery,
+} from "@/lib/types";
 
 /** Central TanStack Query keys so invalidation stays consistent. */
 export const qk = {
@@ -29,4 +37,17 @@ export const qk = {
   orgSettings: () => ["settings", "organization"] as const,
   preferences: () => ["settings", "notifications"] as const,
   search: (q: string) => ["search", q] as const,
+
+  monitoring: ["monitoring"] as const,
+  monitoringPolicy: () => [...qk.monitoring, "policy"] as const,
+  monitoringEmployees: (q: { search?: string; page?: number }) => [...qk.monitoring, "employees", q] as const,
+  monitoringEmployee: (userId: string) => [...qk.monitoring, "employee", userId] as const,
+  monitoringSessions: (userId: string) => [...qk.monitoring, "sessions", userId] as const,
+  screenshots: (q: { userId: string; sessionId?: string; page?: number }) => [...qk.monitoring, "screenshots", q] as const,
+  adminSessions: (q: AdminSessionQuery) => [...qk.monitoring, "admin", "sessions", q] as const,
+  adminSession: (id: string) => [...qk.monitoring, "admin", "session", id] as const,
+  adminScreenshots: (q: AdminScreenshotQuery) => [...qk.monitoring, "admin", "screenshots", q] as const,
+  adminImage: (id: string) => [...qk.monitoring, "admin", "image", id] as const,
+  uploadStatus: () => [...qk.monitoring, "admin", "uploads"] as const,
+  accessLogs: (q: AccessAuditQuery) => [...qk.monitoring, "admin", "access", q] as const,
 };

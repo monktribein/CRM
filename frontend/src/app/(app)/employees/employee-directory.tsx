@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { MoreHorizontal, Pencil, Search, Send, UserMinus, UserPlus, UserCheck, Users } from "lucide-react";
+import { MonitorCheck, MoreHorizontal, Pencil, Search, Send, UserMinus, UserPlus, UserCheck, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,6 +36,7 @@ import { useAuth, useCurrentUser } from "@/components/providers/auth-provider";
 import { AccountStatusBadge, RoleBadge } from "@/components/employees/employee-badges";
 import { EditEmployeeDialog } from "@/components/employees/edit-employee-dialog";
 import { InvitationOutcome } from "@/components/employees/invitation-link";
+import { EmployeeMonitoringDialog } from "@/components/monitoring/monitoring-status";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useDepartments } from "@/hooks/use-lookups";
 import { usersApi } from "@/lib/api/services";
@@ -50,6 +51,7 @@ export function EmployeeDirectory() {
   const me = useCurrentUser();
   const { can } = useAuth();
   const canManage = can("employees.manage");
+  const canMonitor = can("monitoring.view");
   const qc = useQueryClient();
   const params = useSearchParams();
   const router = useRouter();
@@ -89,6 +91,7 @@ export function EmployeeDirectory() {
   });
 
   const [editing, setEditing] = useState<Employee | null>(null);
+  const [monitoring, setMonitoring] = useState<Employee | null>(null);
   const [confirm, setConfirm] = useState<{ employee: Employee; action: "deactivate" | "reactivate" | "remove" } | null>(null);
   const [invite, setInvite] = useState<InvitationResult | null>(null);
   const invalidate = () => qc.invalidateQueries({ queryKey: qk.users });
@@ -211,14 +214,17 @@ export function EmployeeDirectory() {
                           <td className="px-3 py-2.5 whitespace-nowrap text-muted-foreground">{formatDay(e.joinDate)}</td>
                           <td className="px-3 py-2.5 text-right tabular">{e.assignedTaskCount}</td>
                           <td className="py-2.5 pr-4 pl-3 text-right">
-                            {canManage && (
+                            {(canManage || canMonitor) && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="icon-sm" aria-label={`Actions for ${e.name}`}><MoreHorizontal /></Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onSelect={() => setEditing(e)}><Pencil /> Edit role & department</DropdownMenuItem>
-                                  {e.status === "invited" && (
+                                  {canManage && <DropdownMenuItem onSelect={() => setEditing(e)}><Pencil /> Edit role & department</DropdownMenuItem>}
+                                  {canMonitor && e.status !== "invited" && (
+                                    <DropdownMenuItem onSelect={() => setMonitoring(e)}><MonitorCheck /> Screen monitoring</DropdownMenuItem>
+                                  )}
+                                  {canManage && e.status === "invited" && (
                                     <DropdownMenuItem onSelect={() => resend.mutate(e)}><Send /> Re-issue invitation</DropdownMenuItem>
                                   )}
                                   {manageable(e) && (
@@ -251,6 +257,7 @@ export function EmployeeDirectory() {
       </div>
 
       <EditEmployeeDialog employee={editing} onOpenChange={(o) => !o && setEditing(null)} />
+      <EmployeeMonitoringDialog employee={monitoring} onOpenChange={(o) => !o && setMonitoring(null)} />
 
       <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <AlertDialogContent>

@@ -15,6 +15,16 @@ export class NotificationPreferences {
   @Prop({ type: Boolean, default: false }) dailyDigest: boolean;
 }
 
+/** Per-employee screenshot-monitoring enrolment and consent. */
+@Schema({ _id: false })
+export class EmployeeMonitoring {
+  @Prop({ type: Boolean, default: false }) enabled: boolean;
+  /** Policy version the employee last consented to (null = never). */
+  @Prop({ type: String, default: null }) consentPolicyVersion: string | null;
+  @Prop({ type: String, enum: ['granted', 'declined'], default: null }) consentDecision: 'granted' | 'declined' | null;
+  @Prop({ type: Date, default: null }) consentAt: Date | null;
+}
+
 @Schema({ timestamps: true, collection: 'users' })
 export class User {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Organization', required: true })
@@ -83,6 +93,9 @@ export class User {
 
   @Prop({ type: SchemaFactory.createForClass(NotificationPreferences), default: () => ({}) })
   notificationPreferences: NotificationPreferences;
+
+  @Prop({ type: SchemaFactory.createForClass(EmployeeMonitoring), default: () => ({}) })
+  monitoring: EmployeeMonitoring;
 
   createdAt: Date;
   updatedAt: Date;

@@ -24,6 +24,28 @@ export function formatDateTime(iso: string | null | undefined) {
   return format(parseISO(iso), "MMM d, yyyy 'at' h:mm a");
 }
 
+/**
+ * Formats a UTC instant in an explicit IANA timezone (e.g. the organisation's),
+ * independent of the viewer's browser zone. Includes the zone abbreviation.
+ */
+export function formatInZone(iso: string | null | undefined, timeZone: string, withSeconds = false) {
+  if (!iso) return "—";
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      ...(withSeconds ? { second: "2-digit" } : {}),
+      timeZoneName: "short",
+    }).format(new Date(iso));
+  } catch {
+    return formatDateTime(iso);
+  }
+}
+
 export function formatRelative(iso: string | null | undefined) {
   if (!iso) return "—";
   return `${formatDistanceToNowStrict(parseISO(iso))} ago`;

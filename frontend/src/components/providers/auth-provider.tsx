@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { refreshSession } from "@/lib/api/client";
 import { sessionHint, sessionStore } from "@/lib/api/session";
 import { authApi } from "@/lib/api/services";
+import { monitoringRuntime } from "@/lib/monitoring/runtime";
 import type { CurrentUser, Permission } from "@/lib/types";
 import { hasAnyPermission, hasPermission } from "@/lib/permissions";
 
@@ -75,6 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // React to the API client clearing the session (refresh failed → expired).
   useEffect(() => {
     return sessionStore.subscribe((reason) => {
+      void monitoringRuntime.stop(reason === "expired" ? "session_expired" : "logout");
       setUserState(null);
       setStatus("unauthenticated");
       queryClient.clear();
@@ -95,6 +97,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    // Stop capture and close the monitoring session while the access token is still valid.
+    await monitoringRuntime.stop("logout");
     try {
       await authApi.logout();
     } catch {

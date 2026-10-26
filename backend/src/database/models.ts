@@ -11,6 +11,16 @@ import {
 import { Comment, CommentSchema } from '../comments/comment.schema.js';
 import { Counter, CounterSchema } from '../common/counter.schema.js';
 import { Department, DepartmentSchema } from '../departments/department.schema.js';
+import {
+  MonitoringConsent,
+  MonitoringConsentSchema,
+  MonitoringSession,
+  MonitoringSessionSchema,
+  Screenshot,
+  ScreenshotAccessLog,
+  ScreenshotAccessLogSchema,
+  ScreenshotSchema,
+} from '../monitoring/monitoring.schemas.js';
 import { Notification, NotificationSchema } from '../notifications/notification.schema.js';
 import { Project, ProjectSchema } from '../projects/project.schema.js';
 import { Organization, OrganizationSchema } from '../settings/organization.schema.js';
@@ -33,10 +43,18 @@ export const TOKEN_MODELS: ModelDefinition[] = [
   { name: InvitationToken.name, schema: InvitationTokenSchema },
 ];
 
+export const MONITORING_MODELS: ModelDefinition[] = [
+  { name: MonitoringSession.name, schema: MonitoringSessionSchema },
+  { name: Screenshot.name, schema: ScreenshotSchema },
+  { name: MonitoringConsent.name, schema: MonitoringConsentSchema },
+  { name: ScreenshotAccessLog.name, schema: ScreenshotAccessLogSchema },
+];
+
 /** Every collection — used by the database CLI (indexes, seeding). */
 export const ALL_MODELS: ModelDefinition[] = [
   ...CORE_MODELS,
   ...TOKEN_MODELS,
+  ...MONITORING_MODELS,
   { name: Comment.name, schema: CommentSchema },
   { name: Notification.name, schema: NotificationSchema },
   { name: ActivityLog.name, schema: ActivityLogSchema },

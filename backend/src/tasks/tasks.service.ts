@@ -68,7 +68,10 @@ export class TasksService {
           : Promise.resolve([]),
       this.orgs.findById(user.organizationId).select('settings').lean(),
     ]);
-    return new TaskContext(user, departments, { ...DEFAULT_SETTINGS, ...(org?.settings ?? {}) });
+    return new TaskContext(user, departments, {
+      dueSoonThresholdDays: org?.settings?.dueSoonThresholdDays ?? DEFAULT_SETTINGS.dueSoonThresholdDays,
+      reviewRequired: org?.settings?.reviewRequired ?? DEFAULT_SETTINGS.reviewRequired,
+    });
   }
 
   /** Loads a task the user can see. Invisible tasks are reported as not found. */

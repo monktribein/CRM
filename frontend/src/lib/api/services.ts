@@ -1,8 +1,17 @@
 import { apiDownload, apiPaginated, apiRequest } from "@/lib/api/client";
 import type {
+  AccessAuditQuery,
+  AccessLogEntry,
   ActivityLog,
   ActivityQuery,
+  AdminScreenshot,
+  AdminScreenshotQuery,
+  AdminSessionDetail,
+  AdminSessionQuery,
+  AdminSessionRow,
+  UploadSyncStatus,
   AppNotification,
+  ConsentDecision,
   CurrentUser,
   DashboardData,
   Department,
@@ -11,9 +20,15 @@ import type {
   EmployeeInput,
   EmployeeQuery,
   EmployeeReportRow,
+  EmployeeMonitoringStatus,
   EmployeeUpdateInput,
   InvitationResult,
   LoginResponse,
+  MonitoringEndReason,
+  MonitoringPolicy,
+  MonitoringSession,
+  MyMonitoringStatus,
+  ScreenshotRecord,
   NotificationPreferences,
   OrganizationSettings,
   Project,
@@ -184,6 +199,52 @@ export const settingsApi = {
   preferences: () => apiRequest<NotificationPreferences>("/settings/notifications"),
   updatePreferences: (prefs: NotificationPreferences) =>
     apiRequest<NotificationPreferences>("/settings/notifications", { method: "PUT", body: prefs }),
+};
+
+export const monitoringApi = {
+  /* The signed-in employee — identity is taken from the access token. */
+  me: () => apiRequest<MyMonitoringStatus>("/monitoring/me"),
+  consent: (decision: ConsentDecision, policyVersion: string) =>
+    apiRequest<MyMonitoringStatus>("/monitoring/me/consent", { method: "POST", body: { decision, policyVersion } }),
+  permissionDenied: () => apiRequest<void>("/monitoring/me/permission-denied", { method: "POST" }),
+  startSession: (displaySurface?: string) =>
+    apiRequest<MonitoringSession>("/monitoring/sessions", { method: "POST", body: { displaySurface } }),
+  heartbeat: (sessionId: string, queue: { pendingUploads: number; oldestPendingAt?: string }) =>
+    apiRequest<{ status: "active" }>(`/monitoring/sessions/${id(sessionId)}/heartbeat`, { method: "POST", body: queue }),
+  endSession: (sessionId: string, reason: MonitoringEndReason) =>
+    apiRequest<MonitoringSession>(`/monitoring/sessions/${id(sessionId)}/end`, { method: "POST", body: { reason } }),
+  upload: (form: FormData) => apiRequest<ScreenshotRecord>("/monitoring/screenshots", { method: "POST", body: form }),
+
+  /* Administration */
+  policy: () => apiRequest<MonitoringPolicy>("/monitoring/policy"),
+  updatePolicy: (input: Partial<Omit<MonitoringPolicy, "storageConfigured" | "captureIntervalSeconds">>) =>
+    apiRequest<MonitoringPolicy>("/monitoring/policy", { method: "PATCH", body: input }),
+  employees: (query: { search?: string; page?: number; pageSize?: number }) =>
+    apiPaginated<EmployeeMonitoringStatus>("/monitoring/employees", { query }),
+  employee: (userId: string) => apiRequest<EmployeeMonitoringStatus>(`/monitoring/employees/${id(userId)}`),
+  setEnrollment: (userId: string, enabled: boolean) =>
+    apiRequest<EmployeeMonitoringStatus>(`/monitoring/employees/${id(userId)}`, { method: "PATCH", body: { enabled } }),
+  sessions: (userId: string) => apiRequest<MonitoringSession[]>(`/monitoring/employees/${id(userId)}/sessions`),
+  screenshots: (query: { userId: string; sessionId?: string; from?: string; to?: string; page?: number; pageSize?: number }) =>
+    apiPaginated<ScreenshotRecord>("/monitoring/screenshots", { query }),
+  /** Image bytes, streamed from the database by the API. Each view is audited. */
+  screenshotImage: (screenshotId: string) =>
+    apiDownload(`/monitoring/screenshots/${id(screenshotId)}/content`, {}, "image/*"),
+  deleteScreenshot: (screenshotId: string) =>
+    apiRequest<void>(`/monitoring/screenshots/${id(screenshotId)}`, { method: "DELETE" }),
+};
+
+/** Super Admin "Employee Monitoring" dashboard (organisation-wide). */
+export const monitoringAdminApi = {
+  sessions: (query: AdminSessionQuery) => apiPaginated<AdminSessionRow>("/monitoring/admin/sessions", { query: { ...query } }),
+  session: (sessionId: string) => apiRequest<AdminSessionDetail>(`/monitoring/admin/sessions/${id(sessionId)}`),
+  screenshots: (query: AdminScreenshotQuery) =>
+    apiPaginated<AdminScreenshot>("/monitoring/admin/screenshots", { query: { ...query } }),
+  /** Image bytes streamed by the API; every call is recorded in the access audit log. */
+  preview: (screenshotId: string, download = false) =>
+    apiDownload(`/monitoring/admin/screenshots/${id(screenshotId)}/preview`, { query: { download: download ? "true" : undefined } }, "image/*"),
+  uploads: () => apiRequest<UploadSyncStatus>("/monitoring/admin/uploads"),
+  accessLogs: (query: AccessAuditQuery) => apiPaginated<AccessLogEntry>("/monitoring/admin/access-logs", { query: { ...query } }),
 };
 
 export const searchApi = {

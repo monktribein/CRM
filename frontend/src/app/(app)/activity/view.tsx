@@ -25,6 +25,7 @@ const ENTITY_LABELS: Record<ActivityEntity, string> = {
   department: "Department",
   auth: "Sign-in",
   settings: "Settings",
+  monitoring: "Monitoring",
 };
 
 export default function ActivityPage() {
